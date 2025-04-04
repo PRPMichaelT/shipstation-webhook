@@ -5,35 +5,42 @@ import traceback
 
 app = Flask(__name__)
 
-# Use your ShipStation production API token stored as an environment variable
+# Get your ShipStation V2 API token from environment variable
 SHIPSTATION_ACCESS_TOKEN = os.getenv("SHIPSTATION_ACCESS_TOKEN")
 
 @app.route('/push-to-shipstation', methods=['POST'])
 def push_to_shipstation():
     try:
-        data = request.json
-        print("📥 Incoming data:")
+        # 🔍 Log raw incoming request body (useful for debugging)
+        print("📥 Raw request body:")
+        print(request.get_data(as_text=True))
+
+        # 🔍 Parse JSON safely, even if Content-Type is wrong
+        data = request.get_json(force=True)
+        print("📥 Parsed JSON:")
         print(data)
 
+        # ✅ Build order payload using .get() to avoid KeyErrors
         order_payload = {
-            "orderNumber": data['invoice_id'],
-            "orderDate": data['order_date'],
+            "orderNumber": data.get('invoice_id', 'UNKNOWN'),
+            "orderDate": data.get('order_date', '2025-01-01'),
             "orderStatus": "awaiting_shipment",
-            "customerEmail": data['customer_email'],
+            "customerEmail": data.get('customer_email', ''),
             "billTo": {
-                "name": data['billing_name']
+                "name": data.get('billing_name', '')
             },
             "shipTo": {
-                "name": data['shipping_name'],
-                "street1": data['shipping_address'],
-                "city": data['shipping_city'],
-                "state": data['shipping_state'],
-                "postalCode": data['shipping_zip'],
+                "name": data.get('shipping_name', ''),
+                "street1": data.get('shipping_address', ''),
+                "city": data.get('shipping_city', ''),
+                "state": data.get('shipping_state', ''),
+                "postalCode": data.get('shipping_zip', ''),
                 "country": "US"
             },
-            "items": data['items']
+            "items": data.get('items', [])
         }
 
+        # 🔁 Send order to ShipStation
         response = requests.post(
             "https://api.shipstation.com/orders/createorder",
             json=order_payload,
@@ -43,6 +50,7 @@ def push_to_shipstation():
             }
         )
 
+        # 📤 Log response from ShipStation
         print("📤 ShipStation response:", response.status_code, response.text)
 
         if response.status_code == 200:
@@ -51,9 +59,11 @@ def push_to_shipstation():
             return jsonify({"status": "error", "message": response.text}), 500
 
     except Exception as e:
-        print("🔥 Error occurred:")
+        # 🔥 Catch and log any unexpected errors
+        print("🔥 Uncaught Exception:")
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
 
+# 🔌 Start the app on correct host and port for Render
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=10000)

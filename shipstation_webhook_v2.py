@@ -11,6 +11,7 @@ SHIPSTATION_ACCESS_TOKEN = os.getenv("SHIPSTATION_ACCESS_TOKEN")
 @app.route('/push-to-shipstation', methods=['POST'])
 def push_to_shipstation():
     data = request.json
+    ...
 
     order_payload = {
         "orderNumber": data['invoice_id'],

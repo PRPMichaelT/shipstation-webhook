@@ -5,22 +5,24 @@ import traceback
 
 app = Flask(__name__)
 
-# Get your ShipStation V2 API token from environment variable
+# Get your ShipStation API token from environment variable
 SHIPSTATION_ACCESS_TOKEN = os.getenv("SHIPSTATION_ACCESS_TOKEN")
 
 @app.route('/push-to-shipstation', methods=['POST'])
 def push_to_shipstation():
+    print("🛬 Received POST request")  # NEW log line right away
+
     try:
-        # 🔍 Log raw incoming request body (useful for debugging)
+        # Log the raw request body (even if not JSON)
         print("📥 Raw request body:")
         print(request.get_data(as_text=True))
 
-        # 🔍 Parse JSON safely, even if Content-Type is wrong
+        # Force-parse JSON body (even with incorrect headers)
         data = request.get_json(force=True)
         print("📥 Parsed JSON:")
         print(data)
 
-        # ✅ Build order payload using .get() to avoid KeyErrors
+        # Build order payload, safely using .get() to avoid crashes
         order_payload = {
             "orderNumber": data.get('invoice_id', 'UNKNOWN'),
             "orderDate": data.get('order_date', '2025-01-01'),
@@ -40,7 +42,7 @@ def push_to_shipstation():
             "items": data.get('items', [])
         }
 
-        # 🔁 Send order to ShipStation
+        # Send to ShipStation
         response = requests.post(
             "https://api.shipstation.com/orders/createorder",
             json=order_payload,
@@ -50,7 +52,7 @@ def push_to_shipstation():
             }
         )
 
-        # 📤 Log response from ShipStation
+        # Log response
         print("📤 ShipStation response:", response.status_code, response.text)
 
         if response.status_code == 200:
@@ -59,11 +61,10 @@ def push_to_shipstation():
             return jsonify({"status": "error", "message": response.text}), 500
 
     except Exception as e:
-        # 🔥 Catch and log any unexpected errors
         print("🔥 Uncaught Exception:")
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
 
-# 🔌 Start the app on correct host and port for Render
+# Required for Render deployment
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=10000)
